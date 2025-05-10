@@ -1,0 +1,125 @@
+/* Custom styles for YouTube Processor app */
+
+.stApp {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Header styles */
+.main-header {
+    font-size: 2.5rem;
+    color: #FF0000;
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.sub-header {
+    font-size: 1.5rem;
+    color: #505050;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+/* Input container */
+.input-container {
+    background-color: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Results container */
+.result-container {
+    background-color: #f0f2f6;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Video card */
+.video-card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    transition: transform 0.2s;
+}
+
+.video-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.video-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #1E3A8A;
+    margin-bottom: 0.5rem;
+}
+
+.video-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: #6B7280;
+}
+
+.summary-box {
+    background-color: #f9fafb;
+    padding: 1rem;
+    border-radius: 5px;
+    border-left: 4px solid #3B82F6;
+    margin-bottom: 1rem;
+}
+
+/* Metrics display */
+.metric-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.metric-box {
+    background-color: #ffffff;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    flex: 1;
+    min-width: 100px;
+    text-align: center;
+}
+
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #4B5563;
+}
+
+.metric-label {
+    font-size: 0.8rem;
+    color: #6B7280;
+}
+
+/* Sidebar customization */
+.sidebar .sidebar-content {
+    background-color: #f8f9fa;
+}
+
+/* Button styling */
+.stButton>button {
+    width: 100%;
+    height: 3rem;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+/* Progress bar */
+.stProgress>div>div>div {
+    background-color: #FF0000;
+}

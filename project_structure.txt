@@ -1,0 +1,39 @@
+youtube_processor/
+│
+├── src/
+│   ├── __init__.py
+│   ├── main.py                     # Entry point
+│   ├── config.py                   # Configuration (API keys, MongoDB)
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── whisper_model.py        # Whisper model handling
+│   │   └── summarization_model.py  # BERT/T5 summarization models
+│   ├── processors/
+│   │   ├── __init__.py
+│   │   ├── video_processor.py      # Video processing logic
+│   │   ├── playlist_processor.py   # Playlist processing logic
+│   │   └── text_processor.py       # Text preprocessing
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── youtube_utils.py        # YouTube API helpers
+│   │   ├── text_utils.py           # Text cleaning functions
+│   │   ├── metrics.py              # BERTScore and ROUGE metrics
+│   │   └── data_utils.py           # Data handling utilities
+│   └── storage/
+│       ├── __init__.py
+│       └── mongodb_handler.py      # MongoDB interactions
+│
+├── notebooks/
+│   └── youtube_processing.ipynb    # Notebook for experiments
+│
+├── tests/
+│   ├── __init__.py
+│   ├── test_video_processor.py
+│   ├── test_playlist_processor.py
+│   ├── test_summarization.py
+│   └── test_utils.py
+│
+├── requirements.txt
+├── setup.py
+├── README.md
+└── .gitignore
