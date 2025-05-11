@@ -18,6 +18,7 @@ ffmpeg-python==0.2.0
 # NLP and ML
 transformers==4.30.2
 bert-score==0.3.13
+rouge==1.0.1
 rouge-score==0.1.2
 sentencepiece==0.1.99
 langdetect==1.0.9
