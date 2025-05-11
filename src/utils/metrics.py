@@ -1,4 +1,5 @@
 """Metrics for evaluating summarization quality."""
+from rouge_score import rouge_scorer
 
 def compute_bertscore(candidate, reference, lang="en"):
     """
@@ -145,3 +146,4 @@ def compute_rouge(candidate, reference):
     except Exception as e:
         print(f"Error computing ROUGE scores: {str(e)}")
         return {"rouge1": 0.0, "rouge2": 0.0, "rougeL": 0.0}
+

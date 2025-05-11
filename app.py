@@ -241,6 +241,12 @@ def main():
                             {row['Summary']}
                         </div>
                     </details>
+                    <details>
+                        <summary style="cursor: pointer; color: #2962FF; font-weight: bold;">View Full Transcript</summary>
+                        <div style="padding: 10px; background-color: white; border-radius: 5px; margin-top: 10px;">
+                            {row['Transcript']}
+                        </div>
+                    </details>
                 </div>
                 """
             
@@ -324,7 +330,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
 

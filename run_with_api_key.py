@@ -292,7 +292,8 @@ def process_video(video_id):
             "Author": video_info["Author"],
             "Views": video_info["Views"],
             "Summary": summary,
-            "BERTScore_F1": float(F1),  # Ensure it's a float
+            "Transcript": captions,  # Add the transcript
+            "BERTScore_F1": float(F1),
             "ROUGE-1": float(rouge_scores["rouge1"]),
             "ROUGE-2": float(rouge_scores["rouge2"]),
             "ROUGE-L": float(rouge_scores["rougeL"]),
@@ -504,6 +505,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
 
 
