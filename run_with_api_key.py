@@ -188,38 +188,54 @@ def process_video(video_id):
     """Process a single YouTube video using API Key."""
     try:
         # Get video details
+        print(f"Getting details for video {video_id}...")
         video_info = get_video_details(video_id)
         if not video_info:
             print(f"Could not get details for video {video_id}")
             return None
             
         # Get captions
+        print(f"Getting captions for video: {video_info['Title']}...")
         captions, language = get_video_captions(video_id)
+        
         if not captions:
             print(f"No captions found for video {video_id}")
             return None
             
         print(f"Processing video: {video_info['Title']} (language: {language})")
         
-        # Generate summary
+        # Preprocess captions to reduce length if too long
+        if len(captions) > 10000:
+            print(f"Captions too long ({len(captions)} chars), truncating...")
+            # Keep first and last parts of the transcript for better context
+            captions = captions[:5000] + " ... " + captions[-5000:]
+        
+        # Generate summary with improved timeout handling
+        print(f"Generating summary for: {video_info['Title']}...")
         try:
-            summary = summarize_text(captions, language)
-            if not summary or summary.startswith("Could not generate summary"):
-                print(f"Failed to generate summary for {video_info['Title']}")
-                # Tạo một tóm tắt đơn giản
-                summary = f"Summary of {video_info['Title']} (auto-generated due to error)"
+            # First try with a shorter timeout
+            summary = summarize_with_improved_timeout(captions, language, video_info["Title"])
+            
+            if not summary or summary.startswith("Summary of") and "auto-generated" in summary:
+                print(f"Failed to generate summary for {video_info['Title']}, trying chunked approach")
+                # Try chunked approach if the first attempt failed
+                summary = summarize_long_text(captions, language, video_info["Title"])
         except Exception as e:
             print(f"Error generating summary: {str(e)}")
             summary = f"Summary of {video_info['Title']} (auto-generated due to error)"
         
-        # Calculate metrics
+        # Calculate metrics with simplified approach for speed
+        print(f"Calculating metrics for: {video_info['Title']}...")
         try:
-            P, R, F1 = compute_bertscore(summary, captions, lang=language)
-            rouge_scores = compute_rouge(summary, captions)
+            # Use a simpler/faster metric calculation if full metrics are too slow
+            P, R, F1 = compute_bertscore(summary, captions[:1000], lang=language)  # Use shorter text
+            rouge_scores = compute_rouge(summary, captions[:1000])  # Use shorter text
         except Exception as e:
             print(f"Error calculating metrics: {str(e)}")
             P, R, F1 = 0, 0, 0
             rouge_scores = {"rouge1": 0, "rouge2": 0, "rougeL": 0}
+        
+        print(f"Completed processing: {video_info['Title']}")
         
         # Create result
         result = {
@@ -233,7 +249,8 @@ def process_video(video_id):
             "ROUGE-1": rouge_scores["rouge1"],
             "ROUGE-2": rouge_scores["rouge2"],
             "ROUGE-L": rouge_scores["rougeL"],
-            "Language": language
+            "Language": language,
+            "Source": "captions"
         }
         
         return result
@@ -244,7 +261,72 @@ def process_video(video_id):
         traceback.print_exc()
         return None
 
-def process_youtube_playlist_api_key(url, max_videos=MAX_VIDEOS_PER_PLAYLIST):
+def summarize_with_improved_timeout(text, lang, title, timeout=90):
+    """Summarize text with improved timeout handling."""
+    from concurrent.futures import ThreadPoolExecutor
+    
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(summarize_text, text, lang)
+        try:
+            return future.result(timeout=timeout)
+        except TimeoutError:
+            print(f"Summary generation timed out for {title}")
+            return f"Summary of {title} (auto-generated due to timeout)"
+
+def summarize_long_text(text, lang, title, chunk_size=2000, overlap=200):
+    """Summarize long text by breaking it into chunks."""
+    from src.models.summarization_model import summarize_text
+    
+    # If text is short enough, try direct summarization
+    if len(text) < chunk_size:
+        try:
+            return summarize_text(text, lang)
+        except Exception as e:
+            print(f"Error in direct summarization: {str(e)}")
+            return f"Summary of {title} (auto-generated due to error)"
+    
+    # Break text into chunks with overlap
+    chunks = []
+    for i in range(0, len(text), chunk_size - overlap):
+        chunk = text[i:i + chunk_size]
+        if len(chunk) > 200:  # Only include chunks with substantial content
+            chunks.append(chunk)
+    
+    # Summarize each chunk
+    chunk_summaries = []
+    for i, chunk in enumerate(chunks):
+        try:
+            print(f"Summarizing chunk {i+1}/{len(chunks)} for {title}")
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(summarize_text, chunk, lang)
+                chunk_summary = future.result(timeout=30)  # Shorter timeout per chunk
+                if chunk_summary and not chunk_summary.startswith("Could not generate summary"):
+                    chunk_summaries.append(chunk_summary)
+        except Exception as e:
+            print(f"Error summarizing chunk {i+1}: {str(e)}")
+            continue
+    
+    # If we have chunk summaries, combine them and create a final summary
+    if chunk_summaries:
+        combined_summary = " ".join(chunk_summaries)
+        
+        # If combined summary is still too long, summarize it again
+        if len(combined_summary) > 3000:
+            try:
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(summarize_text, combined_summary, lang)
+                    final_summary = future.result(timeout=45)
+                    if final_summary and not final_summary.startswith("Could not generate summary"):
+                        return final_summary
+            except Exception as e:
+                print(f"Error in final summarization: {str(e)}")
+                return combined_summary[:3000] + "..."
+        
+        return combined_summary
+    
+    return f"Summary of {title} (auto-generated due to processing error)"
+
+def process_youtube_playlist_api_key(url, max_videos=MAX_VIDEOS_PER_PLAYLIST, progress_callback=None, processed_videos=None):
     """Process a YouTube playlist using YouTube API with API key."""
     # Create directories
     os.makedirs("output", exist_ok=True)
@@ -253,63 +335,114 @@ def process_youtube_playlist_api_key(url, max_videos=MAX_VIDEOS_PER_PLAYLIST):
         # Extract playlist ID
         playlist_id = extract_playlist_id(url)
         if not playlist_id:
+            if progress_callback:
+                progress_callback(0, 1, "[ERROR] Invalid playlist URL")
             print("[ERROR] Invalid playlist URL")
             return None
         
-        # Get playlist videos
-        playlist_title, video_ids = get_playlist_videos(playlist_id, max_videos)
-        if not video_ids:
+        # Get playlist videos - get more videos than requested to have backups
+        if progress_callback:
+            progress_callback(0.05, 1, "Fetching playlist information...", None)
+            
+        playlist_title, all_video_ids = get_playlist_videos(playlist_id, max_videos * 2)
+        if not all_video_ids:
+            if progress_callback:
+                progress_callback(0.1, 1, "[ERROR] No videos found in playlist", None)
             print("[ERROR] No videos found in playlist")
             return None
         
         print(f"Playlist: {playlist_title}")
-        print(f"Found {len(video_ids)} videos")
+        print(f"Found {len(all_video_ids)} videos, will process {max_videos}")
         
-        # Process videos with improved parallelism
+        # Don't send "Found X videos" message to UI
+        # Instead, just update the progress silently
+        if progress_callback:
+            progress_callback(0.1, 1, "", None)
+        
+        # Process videos with improved parallelism and ensure we get the requested number
         results = []
-        # Increase max_workers for better parallelism
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            # Submit all tasks at once
-            futures = {executor.submit(process_video, video_id): video_id for video_id in video_ids}
+        processed_count = 0
+        video_index = 0
+        
+        # Keep processing videos until we have the requested number or run out of videos
+        while processed_count < max_videos and video_index < len(all_video_ids):
+            # Get the next batch of videos to process
+            batch_size = min(4, max_videos - processed_count)  # Process up to 4 at a time for better UI updates
+            current_batch = all_video_ids[video_index:video_index + batch_size]
+            video_index += batch_size
             
-            # Process results as they complete
-            for future in tqdm(as_completed(futures), total=len(futures), desc="Processing videos"):
-                video_id = futures[future]
-                try:
-                    result = future.result()
-                    if result:
-                        results.append(result)
-                        print(f"Processed: {result['Title']}")
-                except Exception as e:
-                    print(f"Error processing video {video_id}: {str(e)}")
+            # Process the current batch
+            with ThreadPoolExecutor(max_workers=batch_size) as executor:
+                futures = {executor.submit(process_video, video_id): video_id for video_id in current_batch}
+                
+                for future in tqdm(as_completed(futures), total=len(futures), desc=f"Processing videos (Batch {processed_count//4 + 1})"):
+                    video_id = futures[future]
+                    try:
+                        result = future.result()
+                        if result:
+                            results.append(result)
+                            processed_count += 1
+                            print(f"Processed: {result['Title']} ({processed_count}/{max_videos})")
+                            
+                            # Update progress and pass the result
+                            if progress_callback:
+                                progress_value = 0.1 + 0.8 * (processed_count / max_videos)
+                                progress_callback(
+                                    progress_value, 
+                                    1, 
+                                    f"Processed {processed_count}/{max_videos} videos: {result['Title']}",
+                                    result
+                                )
+                        else:
+                            print(f"Failed to process video {video_id}, will try another video")
+                            # Don't send failure messages to UI
+                    except Exception as e:
+                        print(f"Error processing video {video_id}: {str(e)}")
+                        # Don't send error messages to UI
+            
+            print(f"Processed {processed_count}/{max_videos} videos so far")
         
         if not results:
+            if progress_callback:
+                progress_callback(1, 1, "No video processed successfully", None)
             print("[WARN] No video processed successfully")
             return None
+        
+        print(f"Successfully processed {len(results)}/{max_videos} videos")
         
         # Create DataFrame
         df = pd.DataFrame(results)
         
         # Save results
+        if progress_callback:
+            progress_callback(0.95, 1, "Saving results...", None)
+            
         output_path = "output/youtube_summary_results_api_key.csv"
         df.to_csv(output_path, index=False)
-        print(f"\nProcessed {len(df)} videos successfully")
         print(f"Results saved to {output_path}")
         
         # Try to upload to MongoDB if configured
         try:
+            if progress_callback:
+                progress_callback(0.98, 1, "Uploading to MongoDB...", None)
+                
             from src.storage.mongodb_handler_pandas import upload_to_mongodb_pandas
             upload_to_mongodb_pandas(df)
             print("Results uploaded to MongoDB")
         except Exception as e:
             print(f"Error uploading to MongoDB: {str(e)}")
         
+        if progress_callback:
+            progress_callback(1, 1, "Processing complete!", None)
+            
         return df
     
     except Exception as e:
         print(f"Error processing playlist: {str(e)}")
         import traceback
         traceback.print_exc()
+        if progress_callback:
+            progress_callback(1, 1, f"Error: {str(e)}", None)
         return None
 
 def main():
@@ -324,9 +457,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
 
 
 
